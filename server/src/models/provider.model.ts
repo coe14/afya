@@ -1,5 +1,12 @@
 import { Schema, model, type HydratedDocument, type Types } from "mongoose";
 import { PROFESSIONS, type Profession } from "./service.model";
+import {
+  geoPointSchema,
+  isWholeNumber,
+  moneySchema,
+  type IGeoPoint,
+  type IMoney,
+} from "./shared.schemas";
 
 /* ────────────────────────────────────────────────────────────
  * 1. Allowed values (later these move to config/constants.ts)
@@ -20,20 +27,10 @@ const TIME_OF_DAY_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
  * 2. TypeScript interfaces
  * ──────────────────────────────────────────────────────────── */
 
-export interface IGeoPoint {
-  type: "Point";
-  coordinates: number[]; // [longitude, latitude]
-}
-
 export interface IQualification {
   title: string;
   institution?: string;
   year?: number;
-}
-
-export interface IMoney {
-  amount: number; // minor currency units (e.g. cents)
-  currency: string;
 }
 
 export interface IServiceOffering {
@@ -118,11 +115,6 @@ export type ProviderDocument = HydratedDocument<IProvider>;
  * 3. Helpers
  * ──────────────────────────────────────────────────────────── */
 
-const isWholeNumber = {
-  validator: Number.isInteger,
-  message: "{PATH} must be a whole number",
-};
-
 function isValidTimeZone(value: string): boolean {
   try {
     new Intl.DateTimeFormat("en", { timeZone: value });
@@ -135,27 +127,6 @@ function isValidTimeZone(value: string): boolean {
 /* ────────────────────────────────────────────────────────────
  * 4. Sub-schemas
  * ──────────────────────────────────────────────────────────── */
-
-const geoPointSchema = new Schema<IGeoPoint>(
-  {
-    type: { type: String, enum: ["Point"], default: "Point", required: true },
-    coordinates: {
-      type: [Number],
-      required: true,
-      validate: {
-        validator: (value: number[]) =>
-          value.length === 2 &&
-          value[0] >= -180 &&
-          value[0] <= 180 &&
-          value[1] >= -90 &&
-          value[1] <= 90,
-        message:
-          "coordinates must be [longitude, latitude] within valid ranges",
-      },
-    },
-  },
-  { _id: false },
-);
 
 const qualificationSchema = new Schema<IQualification>(
   {
@@ -171,23 +142,6 @@ const qualificationSchema = new Schema<IQualification>(
           message: "year cannot be in the future",
         },
       ],
-    },
-  },
-  { _id: false },
-);
-
-// A separate sub-schema (not a nested path) because customPrice is OPTIONAL:
-// its required fields are only checked when a custom price is actually provided.
-const moneySchema = new Schema<IMoney>(
-  {
-    amount: { type: Number, required: true, min: 0, validate: isWholeNumber },
-    currency: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-      minlength: 3,
-      maxlength: 3,
     },
   },
   { _id: false },

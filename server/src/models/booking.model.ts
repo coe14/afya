@@ -1,4 +1,10 @@
 import { Schema, model, type HydratedDocument, type Types } from "mongoose";
+import {
+  currencyField,
+  geoPointSchema,
+  moneyField,
+  type IGeoPoint,
+} from "./shared.schemas";
 
 /* ────────────────────────────────────────────────────────────
  * 1. Allowed values (later these move to config/constants.ts)
@@ -41,11 +47,6 @@ export type CancellerRole = (typeof CANCELLER_ROLES)[number];
 /* ────────────────────────────────────────────────────────────
  * 2. TypeScript interfaces (the "shape" of our data)
  * ──────────────────────────────────────────────────────────── */
-
-export interface IGeoPoint {
-  type: "Point";
-  coordinates: number[]; // [longitude, latitude]
-}
 
 export interface IAddress {
   label?: string;
@@ -132,44 +133,8 @@ export interface IBooking {
 export type BookingDocument = HydratedDocument<IBooking>;
 
 /* ────────────────────────────────────────────────────────────
- * 3. Reusable pieces
+ * 3. Sub-schemas (small documents embedded inside a booking)
  * ──────────────────────────────────────────────────────────── */
-
-// Money is stored as whole numbers in minor units (e.g. cents / santim).
-const moneyField = {
-  type: Number,
-  required: true,
-  min: 0,
-  validate: {
-    validator: Number.isInteger,
-    message: "{PATH} must be a whole number in minor currency units",
-  },
-};
-
-/* ────────────────────────────────────────────────────────────
- * 4. Sub-schemas (small documents embedded inside a booking)
- * ──────────────────────────────────────────────────────────── */
-
-const geoPointSchema = new Schema<IGeoPoint>(
-  {
-    type: { type: String, enum: ["Point"], default: "Point", required: true },
-    coordinates: {
-      type: [Number],
-      required: true,
-      validate: {
-        validator: (value: number[]) =>
-          value.length === 2 &&
-          value[0] >= -180 &&
-          value[0] <= 180 &&
-          value[1] >= -90 &&
-          value[1] <= 90,
-        message:
-          "coordinates must be [longitude, latitude] within valid ranges",
-      },
-    },
-  },
-  { _id: false },
-);
 
 const addressSchema = new Schema<IAddress>(
   {
@@ -221,7 +186,7 @@ const cancellationSchema = new Schema<ICancellation>(
 );
 
 /* ────────────────────────────────────────────────────────────
- * 5. The Booking schema
+ * 4. The Booking schema
  * ──────────────────────────────────────────────────────────── */
 
 const bookingSchema = new Schema<IBooking>(
@@ -260,14 +225,7 @@ const bookingSchema = new Schema<IBooking>(
     responseDeadline: { type: Date },
 
     pricing: {
-      currency: {
-        type: String,
-        required: true,
-        trim: true,
-        uppercase: true,
-        minlength: 3,
-        maxlength: 3,
-      },
+      currency: currencyField,
       subtotal: moneyField,
       platformFee: { ...moneyField, default: 0 },
       total: moneyField,
@@ -298,7 +256,7 @@ const bookingSchema = new Schema<IBooking>(
 );
 
 /* ────────────────────────────────────────────────────────────
- * 6. Validation that involves more than one field
+ * 5. Validation that involves more than one field
  * ──────────────────────────────────────────────────────────── */
 
 bookingSchema.pre("validate", function () {
@@ -315,7 +273,7 @@ bookingSchema.pre("validate", function () {
 });
 
 /* ────────────────────────────────────────────────────────────
- * 7. Indexes (as defined in ARCHITECTURE.md, section 2.6)
+ * 6. Indexes (as defined in ARCHITECTURE.md, section 2.6)
  * ──────────────────────────────────────────────────────────── */
 
 // Lookup by human-friendly code.
@@ -346,7 +304,7 @@ bookingSchema.index(
 );
 
 /* ────────────────────────────────────────────────────────────
- * 8. The model
+ * 7. The model
  * ──────────────────────────────────────────────────────────── */
 
 export const Booking = model<IBooking>("Booking", bookingSchema);
