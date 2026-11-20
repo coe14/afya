@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
-import type { RegisterInput } from './auth.schema';
-import { registerUser } from './auth.service';
+import type { LoginInput, RegisterInput } from './auth.schema';
+import { loginUser, registerUser } from './auth.service';
 
 // POST /api/v1/auth/register
 export const register: RequestHandler = async (req, res) => {
@@ -10,4 +10,14 @@ export const register: RequestHandler = async (req, res) => {
   const user = await registerUser(input);
 
   res.status(201).json({ data: { user } });
+};
+
+// POST /api/v1/auth/login
+export const login: RequestHandler = async (req, res) => {
+  // validateBody(loginSchema) already checked and cleaned this data.
+  const input: LoginInput = req.body;
+
+  const { user, accessToken } = await loginUser(input);
+
+  res.status(200).json({ data: { user, accessToken } });
 };
